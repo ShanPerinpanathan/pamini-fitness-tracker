@@ -188,17 +188,9 @@ const HomeTab = ({ date, dow, dayInfo }) => {
   return (
     <div>
       {/* greeting */}
-      <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, color: 'rgba(255,255,255,.5)', marginBottom: 2 }}>{greet},</div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, color: '#f5f5f5', lineHeight: 1.1 }}>Pamini <span style={{ color: '#e11d48' }}>✨</span></div>
-        <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, marginTop: 6 }}>
-          {new Date().toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </div>
-      </div>
-
-      {/* day badge */}
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <span style={{ background: dayInfo.color, color: '#fff', fontWeight: 700, fontSize: 13, padding: '6px 20px', borderRadius: 20, letterSpacing: .5 }}>{dayInfo.label}</span>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: 'rgba(255,255,255,.4)', marginBottom: 2 }}>{greet},</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#f5f5f5', lineHeight: 1.1 }}>Pamini <span style={{ color: '#e11d48' }}>✨</span></div>
       </div>
 
       {/* rings row */}
@@ -299,11 +291,6 @@ const WorkoutTab = ({ date, dow, dayInfo }) => {
 
   return (
     <div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, color: '#f5f5f5', marginBottom: 4 }}>{dayInfo.label}</div>
-      <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 12, marginBottom: 20 }}>
-        {new Date().toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}
-      </div>
-
       {/* OTF block */}
       {sched.otf && (
         <div style={{ background: 'rgba(249,115,22,.1)', border: '1px solid rgba(249,115,22,.2)', borderRadius: 14, padding: 16, marginBottom: 14 }}>
@@ -843,15 +830,102 @@ const TABS = [
   { id: 'progress',icon: IC.ruler, label: 'Progress'},
 ];
 
+/* ── Date nav helper ── */
+const addDays = (dateStr, n) => {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+};
+const formatHeaderDate = (dateStr) => {
+  const d = new Date(dateStr + 'T12:00:00');
+  const t = todayStr();
+  if (dateStr === t) return 'Today';
+  if (dateStr === addDays(t, 1)) return 'Tomorrow';
+  if (dateStr === addDays(t, -1)) return 'Yesterday';
+  return d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+};
+
 export default function App() {
   const [tab, setTab] = useState('home');
-  const date = todayStr();
-  const dow = new Date().getDay();
+  const [date, setDate] = useState(todayStr());
+  const [showPicker, setShowPicker] = useState(false);
+
+  const dow = new Date(date + 'T12:00:00').getDay();
   const dayInfo = SCHEDULE[dow];
+  const isToday = date === todayStr();
+
+  const ChevL = () => (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+  );
+  const ChevR = () => (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18l6-6-6-6"/>
+    </svg>
+  );
 
   return (
-    <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'var(--font-body)', position: 'relative' }}>
-      <div style={{ padding: '20px 18px 100px', overflowY: 'auto' }}>
+    <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'var(--font-body)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+
+      {/* ── Date header ── */}
+      <div style={{ background: '#111', borderBottom: '1px solid rgba(255,255,255,.07)', padding: '10px 16px', flexShrink: 0, zIndex: 50 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+
+          {/* prev arrow */}
+          <button onClick={() => { setDate(d => addDays(d, -1)); setShowPicker(false); }}
+            style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,.5)', flexShrink: 0 }}>
+            <ChevL />
+          </button>
+
+          {/* center — tap to open date picker */}
+          <button onClick={() => setShowPicker(p => !p)}
+            style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'center' }}>
+            <div style={{ color: '#e11d48', fontWeight: 800, fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+              {formatHeaderDate(date)}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 11, marginTop: 2 }}>
+              {new Date(date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </div>
+            {!isToday && (
+              <div style={{ color: '#e11d48', fontSize: 10, marginTop: 3, fontWeight: 600 }}>
+                tap date to return to today ↑
+              </div>
+            )}
+          </button>
+
+          {/* next arrow */}
+          <button onClick={() => { setDate(d => addDays(d, 1)); setShowPicker(false); }}
+            style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.08)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,.5)', flexShrink: 0 }}>
+            <ChevR />
+          </button>
+        </div>
+
+        {/* date picker dropdown */}
+        {showPicker && (
+          <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="date" value={date}
+              onChange={e => { if (e.target.value) { setDate(e.target.value); setShowPicker(false); } }}
+              style={{ flex: 1, background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 9, padding: '9px 12px', color: '#f5f5f5', fontSize: 14, outline: 'none' }} />
+            {!isToday && (
+              <button onClick={() => { setDate(todayStr()); setShowPicker(false); }}
+                style={{ background: '#e11d48', border: 'none', borderRadius: 9, padding: '9px 14px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Back to Today
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* day badge */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+          <span style={{ background: dayInfo.color, color: '#fff', fontWeight: 700, fontSize: 11, padding: '4px 14px', borderRadius: 20, letterSpacing: .5 }}>
+            {dayInfo.label}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Tab content ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px 100px' }}>
         {tab === 'home'     && <HomeTab     date={date} dow={dow} dayInfo={dayInfo} />}
         {tab === 'workout'  && <WorkoutTab  date={date} dow={dow} dayInfo={dayInfo} />}
         {tab === 'food'     && <FoodTab     date={date} dow={dow} />}
@@ -860,7 +934,7 @@ export default function App() {
         {tab === 'progress' && <ProgressTab />}
       </div>
 
-      {/* bottom nav */}
+      {/* ── Bottom nav ── */}
       <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: 'rgba(10,10,10,.97)', backdropFilter: 'blur(20px)', borderTop: '1px solid rgba(255,255,255,.07)', display: 'flex', padding: '6px 0 max(6px,env(safe-area-inset-bottom))', zIndex: 100 }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: '5px 0' }}>
