@@ -82,61 +82,92 @@ const Inp = ({ value, onChange, placeholder, type = 'text', style }) => (
     style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.1)', borderRadius: 9, padding: '10px 12px', color: '#f5f5f5', fontSize: 14, outline: 'none', width: '100%', ...style }} />
 );
 
-/* ── set logger ── */
-const SetLogger = ({ exId, sets, date }) => {
-  const key = `sets_${date}_${exId}`;
-  const [logged, setLogged] = useState(() => ls(key, []));
-  const [w, setW] = useState(''); const [r, setR] = useState('');
-  const add = () => {
-    if (!r) return;
-    const u = [...logged, { w: w || 'BW', r, t: Date.now() }];
-    setLogged(u); ss(key, u); setW(''); setR('');
-  };
-  const del = i => { const u = logged.filter((_, j) => j !== i); setLogged(u); ss(key, u); };
-  return (
-    <div style={{ marginTop: 10, background: 'rgba(255,255,255,.03)', borderRadius: 10, padding: 12 }}>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <Inp value={w} onChange={e => setW(e.target.value)} placeholder="Weight (lbs / BW)" style={{ flex: 1 }} />
-        <Inp value={r} onChange={e => setR(e.target.value)} placeholder="Reps" type="number" style={{ width: 72 }} />
-        <button onClick={add} style={{ background: '#e11d48', border: 'none', borderRadius: 9, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-          <Ic d={IC.plus} size={16} stroke="#fff" />
-        </button>
-      </div>
-      {logged.map((s, i) => (
-        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,.05)', borderRadius: 7, padding: '7px 10px', marginBottom: 4 }}>
-          <span style={{ color: '#f5f5f5', fontSize: 13 }}>Set {i + 1} — <span style={{ color: '#e11d48', fontWeight: 700 }}>{s.r} reps</span> × <span style={{ color: 'rgba(255,255,255,.55)' }}>{s.w}</span></span>
-          <button onClick={() => del(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}><Ic d={IC.trash} size={14} stroke="rgba(255,255,255,.3)" /></button>
-        </div>
-      ))}
-      {logged.length > 0 && <div style={{ color: 'rgba(255,255,255,.25)', fontSize: 11, marginTop: 4 }}>{logged.length}/{sets} sets logged</div>}
-    </div>
-  );
-};
-
-/* ── exercise card ── */
+/* ── exercise card with set-tap buttons (matching Shan's tracker) ── */
 const ExCard = ({ ex, date }) => {
+  const key = `sets_${date}_${ex.id}`;
+  const [doneSets, setDoneSets] = useState(() => ls(key, Array(ex.sets).fill(false)));
   const [open, setOpen] = useState(false);
+
+  const toggleSet = (i, e) => {
+    e.stopPropagation();
+    const u = [...doneSets];
+    u[i] = !u[i];
+    // ensure array is always ex.sets length
+    while (u.length < ex.sets) u.push(false);
+    setDoneSets(u); ss(key, u);
+  };
+
+  const completedCount = doneSets.filter(Boolean).length;
+  const allDone = completedCount >= ex.sets;
+
   return (
-    <div style={{ background: '#161616', border: '1px solid rgba(255,255,255,.07)', borderRadius: 14, overflow: 'hidden', marginBottom: 10 }}>
-      <button onClick={() => setOpen(!open)} style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: 'none', border: 'none', padding: 14, cursor: 'pointer', textAlign: 'left' }}>
+    <div onClick={() => setOpen(!open)} style={{
+      background: allDone ? 'rgba(52,211,153,.07)' : '#161616',
+      border: `1px solid ${allDone ? 'rgba(52,211,153,.25)' : 'rgba(255,255,255,.07)'}`,
+      borderRadius: 14, overflow: 'hidden', marginBottom: 10, cursor: 'pointer',
+      transition: 'background .2s, border .2s',
+    }}>
+      {/* header row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14 }}>
         <img src={ex.img} alt={ex.name} onError={e => { e.target.style.display = 'none'; }}
-          style={{ width: 54, height: 54, borderRadius: 10, objectFit: 'cover', background: 'rgba(255,255,255,.06)', flexShrink: 0 }} />
+          style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: 'rgba(255,255,255,.06)', flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ color: '#f5f5f5', fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
-          <div style={{ color: 'rgba(255,255,255,.4)', fontSize: 12, marginTop: 2 }}>{ex.muscles}</div>
+          <div style={{ color: '#f5f5f5', fontWeight: 600, fontSize: 14, lineHeight: 1.3 }}>{ex.name}</div>
+          <div style={{ color: '#e11d48', fontSize: 11, fontWeight: 600, marginTop: 2 }}>{ex.muscles}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
             {[`${ex.sets} sets`, `${ex.reps} reps`, `Rest ${ex.rest}`].map(t => (
-              <span key={t} style={{ background: 'rgba(225,29,72,.12)', color: '#e11d48', fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 500 }}>{t}</span>
+              <span key={t} style={{ background: 'rgba(255,255,255,.07)', color: 'rgba(255,255,255,.5)', fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{t}</span>
             ))}
           </div>
         </div>
-        <span style={{ color: 'rgba(255,255,255,.3)', fontSize: 20, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>›</span>
-      </button>
+        {/* completion badge */}
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+          background: allDone ? '#34d399' : 'rgba(255,255,255,.06)',
+          border: `1px solid ${allDone ? '#34d399' : 'rgba(255,255,255,.1)'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: allDone ? 14 : 12, fontWeight: 700,
+          color: allDone ? '#fff' : 'rgba(255,255,255,.4)',
+          transition: 'all .2s',
+        }}>
+          {allDone ? <Ic d={IC.check} size={16} sw={3} stroke="#fff" /> : `${completedCount}/${ex.sets}`}
+        </div>
+      </div>
+
+      {/* expanded: notes + set buttons */}
       {open && (
-        <div style={{ padding: '0 14px 14px' }}>
-          {ex.notes && <div style={{ color: 'rgba(255,255,255,.45)', fontSize: 13, marginBottom: 8, fontStyle: 'italic' }}>💡 {ex.notes}</div>}
-          <a href={ex.url} target="_blank" rel="noreferrer" style={{ color: '#e11d48', fontSize: 12, textDecoration: 'none', display: 'block', marginBottom: 8 }}>View on liftmanual.com ↗</a>
-          <SetLogger exId={ex.id} sets={ex.sets} date={date} />
+        <div onClick={e => e.stopPropagation()} style={{ padding: '0 14px 16px', borderTop: '1px solid rgba(255,255,255,.06)' }}>
+          {ex.notes && (
+            <div style={{ color: 'rgba(255,255,255,.45)', fontSize: 13, fontStyle: 'italic', margin: '10px 0 12px', lineHeight: 1.5 }}>
+              💡 {ex.notes}
+            </div>
+          )}
+          <a href={ex.url} target="_blank" rel="noreferrer"
+            style={{ color: '#a78bfa', fontSize: 12, fontWeight: 600, textDecoration: 'none', display: 'block', marginBottom: 14 }}>
+            View on liftmanual.com ↗
+          </a>
+          {/* set tap buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+            {Array.from({ length: ex.sets }).map((_, i) => (
+              <button key={i} onClick={(e) => toggleSet(i, e)} style={{
+                background: doneSets[i] ? '#e11d48' : 'rgba(255,255,255,.06)',
+                border: `1px solid ${doneSets[i] ? '#e11d48' : 'rgba(255,255,255,.1)'}`,
+                borderRadius: 9, padding: '11px 6px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                minHeight: 42, transition: 'all .15s', transform: 'scale(1)',
+              }}>
+                {doneSets[i]
+                  ? <Ic d={IC.check} size={15} sw={3} stroke="#fff" />
+                  : <span style={{ color: 'rgba(255,255,255,.5)', fontSize: 12, fontWeight: 700 }}>Set {i + 1}</span>
+                }
+              </button>
+            ))}
+          </div>
+          {completedCount > 0 && (
+            <div style={{ color: 'rgba(255,255,255,.25)', fontSize: 11, marginTop: 8, textAlign: 'right' }}>
+              {completedCount}/{ex.sets} sets completed
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -170,11 +201,14 @@ const HomeTab = ({ date, dow, dayInfo }) => {
   const allSupps = [...SUPPLEMENTS.morning, ...SUPPLEMENTS.preworkout, ...SUPPLEMENTS.night];
   const suppDone = allSupps.filter(s => suppChecked[s.id]).length;
 
-  // workout
+  // workout — count tapped set buttons (array of booleans)
   const workout = WORKOUTS[dow];
   const allSets = workout ? workout.exercises.reduce((a, e) => a + e.sets, 0) : 0;
   let loggedSets = 0;
-  if (workout) workout.exercises.forEach(e => { loggedSets += ls(`sets_${date}_${e.id}`, []).length; });
+  if (workout) workout.exercises.forEach(e => {
+    const setArr = ls(`sets_${date}_${e.id}`, Array(e.sets).fill(false));
+    loggedSets += setArr.filter(Boolean).length;
+  });
 
   // weight progress
   const weights = ls('measurements', []);
@@ -193,23 +227,47 @@ const HomeTab = ({ date, dow, dayInfo }) => {
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, color: '#f5f5f5', lineHeight: 1.1 }}>Pamini <span style={{ color: '#e11d48' }}>✨</span></div>
       </div>
 
-      {/* rings row */}
-      <Card style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14, padding: '18px 10px' }}>
-        <div style={{ textAlign: 'center' }}>
-          <Ring pct={(calEaten / goalCal) * 100} color="#e11d48" label={calEaten} sub="eaten" />
-          <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 11, marginTop: 6 }}>Calories</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <Ring pct={(suppDone / allSupps.length) * 100} color="#a78bfa" label={`${suppDone}/${allSupps.length}`} sub="taken" />
-          <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 11, marginTop: 6 }}>Supps</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <Ring pct={progressPct} color="#34d399" label={`${lost}`} sub="lbs lost" />
-          <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 11, marginTop: 6 }}>Progress</div>
+      {/* progress bars — matches Shan's tracker style */}
+      <Card style={{ marginBottom: 14 }}>
+        <Sh label="Today's Progress" />
+        {[
+          { label: 'Workout', done: loggedSets, total: allSets || 1, color: '#e11d48', suffix: 'sets', show: !!workout },
+          { label: 'Nutrition', done: checkedItems.length, total: allItems.length || 1, color: '#34d399', suffix: 'items', show: true },
+          { label: 'Supplements', done: suppDone, total: allSupps.length || 1, color: '#a78bfa', suffix: 'taken', show: true },
+        ].filter(r => r.show).map(row => (
+          <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 78, color: 'rgba(255,255,255,.5)', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{row.label}</div>
+            <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,.07)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: row.color, borderRadius: 4, width: `${Math.min((row.done / row.total) * 100, 100)}%`, transition: 'width .4s' }} />
+            </div>
+            <div style={{ color: 'rgba(255,255,255,.4)', fontSize: 12, fontWeight: 600, flexShrink: 0, minWidth: 48, textAlign: 'right' }}>
+              {row.done}/{row.total}
+            </div>
+          </div>
+        ))}
+      </Card>
+
+      {/* macro strip */}
+      <Card style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around' }}>
+          {[
+            ['Carbs',   `${plan.macros.c}g`, '#fbbf24'],
+            ['Protein', `${plan.macros.p}g`, '#a78bfa'],
+            ['Fat',     `${plan.macros.f}g`, '#34d399'],
+            ['Calories', goalCal,            '#e11d48'],
+          ].map(([l, v, c], i, arr) => (
+            <React.Fragment key={l}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: c, fontWeight: 800, fontSize: 17 }}>{v}</div>
+                <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 11, marginTop: 2 }}>{l}</div>
+              </div>
+              {i < arr.length - 1 && <div style={{ width: 1, height: 30, background: 'rgba(255,255,255,.07)' }} />}
+            </React.Fragment>
+          ))}
         </div>
       </Card>
 
-      {/* calorie breakdown */}
+      {/* calorie eaten + deficit */}
       <Card style={{ marginBottom: 14 }}>
         <Sh label="Calorie Summary" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
@@ -217,40 +275,23 @@ const HomeTab = ({ date, dow, dayInfo }) => {
             ['Goal',    goalCal,   '#f5f5f5'],
             ['Eaten',   calEaten,  '#e11d48'],
             ['Burned',  bonusCal,  '#34d399'],
-            ['Net Def', deficit > 0 ? deficit : 0, '#fbbf24'],
+            ['Deficit', deficit > 0 ? deficit : 0, '#fbbf24'],
           ].map(([l, v, c]) => (
             <div key={l} style={{ background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '10px 6px', textAlign: 'center' }}>
-              <div style={{ color: c, fontWeight: 700, fontSize: 16 }}>{v}</div>
+              <div style={{ color: c, fontWeight: 700, fontSize: 15 }}>{v}</div>
               <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 10, marginTop: 2 }}>{l}</div>
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 10 }}>
           <div style={{ height: 6, background: 'rgba(255,255,255,.07)', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ height: '100%', background: calEaten > goalCal ? '#f97316' : '#e11d48', borderRadius: 3, width: `${Math.min((calEaten / goalCal) * 100, 100)}%`, transition: 'width .4s' }} />
           </div>
           <div style={{ color: 'rgba(255,255,255,.3)', fontSize: 11, marginTop: 4, textAlign: 'right' }}>
-            {calEaten > goalCal ? `${calEaten - goalCal} cal over` : `${goalCal - calEaten} cal remaining`}
+            {calEaten > goalCal ? `⚠️ ${calEaten - goalCal} over` : `${goalCal - calEaten} remaining`}
           </div>
         </div>
       </Card>
-
-      {/* workout progress */}
-      {workout && (
-        <Card style={{ marginBottom: 14 }}>
-          <Sh label="Today's Workout" />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ color: '#f5f5f5', fontWeight: 600, fontSize: 15 }}>{workout.label}</div>
-              <div style={{ color: 'rgba(255,255,255,.4)', fontSize: 12, marginTop: 2 }}>{workout.muscles}</div>
-            </div>
-            <div style={{ color: '#e11d48', fontWeight: 700, fontSize: 18 }}>{loggedSets}/{allSets}</div>
-          </div>
-          <div style={{ height: 6, background: 'rgba(255,255,255,.07)', borderRadius: 3, overflow: 'hidden', marginTop: 10 }}>
-            <div style={{ height: '100%', background: '#e11d48', borderRadius: 3, width: `${(loggedSets / allSets) * 100}%`, transition: 'width .4s' }} />
-          </div>
-        </Card>
-      )}
 
       {/* steps */}
       <Card style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
