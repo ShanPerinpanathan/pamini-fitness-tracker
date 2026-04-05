@@ -1,21 +1,29 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-html, body, #root {
-  height: 100%;
-  background: #0d0d0d;
-  color: #fff;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+:root {
+  --bg:       #0a0a0a;
+  --bg2:      #111111;
+  --bg3:      #1a1a1a;
+  --card:     #161616;
+  --border:   rgba(255,255,255,.07);
+  --accent:   #e11d48;
+  --accent2:  #f97316;
+  --purple:   #a78bfa;
+  --green:    #34d399;
+  --yellow:   #fbbf24;
+  --text:     #f5f5f5;
+  --text2:    rgba(255,255,255,.65);
+  --text3:    rgba(255,255,255,.35);
+  --radius:   14px;
+  --radius-sm:9px;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body:    'Inter', -apple-system, sans-serif;
 }
-
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 ::-webkit-scrollbar { display: none; }
 * { -ms-overflow-style: none; scrollbar-width: none; }
-
-input { -webkit-appearance: none; }
+input, textarea, select { font-family: var(--font-body); }
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-
-button { -webkit-tap-highlight-color: transparent; }
-
-::placeholder { color: rgba(255,255,255,.25); }
+button { -webkit-tap-highlight-color: transparent; font-family: var(--font-body); }
+::placeholder { color: var(--text3); }
+a { color: var(--accent); }
