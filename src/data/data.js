@@ -1,5 +1,5 @@
-export const SUPABASE_URL = "https://wxdhmwzarlohcywqhyms.supabase.co";
-export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4ZGhtd3phcmxvaGN5d3FoeW1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTc1MTIsImV4cCI6MjA5MDk3MzUxMn0.ZY7AH6t279eL2UNmxg9nJ6XR5xkWK2nHLRbzyKXik2g";
+export const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+export const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 export const PROFILE = {
   name: "Pamini",
