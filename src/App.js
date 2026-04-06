@@ -1,10 +1,75 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { PROFILE, SCHEDULE, WORKOUTS, MEALS, SUPPLEMENTS, BONUS_ACTIVITIES, MEASUREMENTS_FIELDS } from './data/data';
 
 /* ── storage ── */
 const ls = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
 const ss = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const todayStr = () => new Date().toISOString().split('T')[0];
+
+/* ── Supabase ── */
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+const USER_ID = 'pamini';
+
+const syncDaily = async (date, patch) => {
+  try {
+    await supabase.from('daily_logs').upsert(
+      { user_id: USER_ID, log_date: date, ...patch, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,log_date' }
+    );
+  } catch (e) { console.warn('sync failed', e); }
+};
+
+const loadDaily = async (date) => {
+  try {
+    const { data } = await supabase
+      .from('daily_logs').select('*')
+      .eq('user_id', USER_ID).eq('log_date', date).single();
+    if (data) {
+      if (data.food_checked)  ss(`food_${date}`,         data.food_checked);
+      if (data.supps_checked) ss(`supps_${date}`,        data.supps_checked);
+      if (data.sets_logged)   {
+        // sets_logged is { [exId]: boolean[] }
+        Object.entries(data.sets_logged).forEach(([exId, arr]) => {
+          ss(`sets_${date}_${exId}`, arr);
+        });
+      }
+      if (data.bonus_checked) ss(`bonus_${date}`,        data.bonus_checked);
+      if (data.bonus_custom)  ss(`bonus_custom_${date}`, data.bonus_custom);
+      if (data.custom_foods)  ss(`custom_food_${date}`,  data.custom_foods);
+    }
+  } catch (e) { console.warn('load failed', e); }
+};
+
+const loadMeasurements = async () => {
+  try {
+    const { data } = await supabase
+      .from('weight_logs').select('*')
+      .eq('user_id', USER_ID).order('created_at', { ascending: true });
+    if (data?.length) {
+      ss('measurements', data.map(r => ({
+        date: r.log_date, ts: new Date(r.created_at).getTime(),
+        weight: r.weight_lbs, waist: r.waist, hips: r.hips,
+        chest: r.chest, thighs: r.thighs, arms: r.arms, bf: r.bf, note: r.note,
+      })));
+    }
+  } catch (e) { console.warn('load measurements failed', e); }
+};
+
+const saveMeasurement = async (entry) => {
+  try {
+    await supabase.from('weight_logs').insert({
+      user_id: USER_ID, log_date: entry.date,
+      weight_lbs: entry.weight || null, waist: entry.waist || null,
+      hips: entry.hips || null, chest: entry.chest || null,
+      thighs: entry.thighs || null, arms: entry.arms || null,
+      bf: entry.bf || null, note: entry.note || null,
+    });
+  } catch (e) { console.warn('save measurement failed', e); }
+};
 
 /* ── tiny icon ── */
 const Ic = ({ d, size = 20, stroke = 'currentColor', sw = 1.8, fill = 'none' }) => (
@@ -92,9 +157,13 @@ const ExCard = ({ ex, date }) => {
     e.stopPropagation();
     const u = [...doneSets];
     u[i] = !u[i];
-    // ensure array is always ex.sets length
     while (u.length < ex.sets) u.push(false);
     setDoneSets(u); ss(key, u);
+    // sync all sets for this exercise — load full sets_logged object then update
+    const allSetsLogged = ls(`sets_logged_obj_${date}`, {});
+    allSetsLogged[ex.id] = u;
+    ss(`sets_logged_obj_${date}`, allSetsLogged);
+    syncDaily(date, { sets_logged: allSetsLogged });
   };
 
   const completedCount = doneSets.filter(Boolean).length;
@@ -405,20 +474,24 @@ const FoodTab = ({ date, dow }) => {
   const toggle = id => {
     const u = { ...checked, [id]: !checked[id] };
     setChecked(u); ss(`food_${date}`, u);
+    syncDaily(date, { food_checked: u });
   };
   const toggleCustom = idx => {
     const u = customFoods.map((f, i) => i === idx ? { ...f, checked: !f.checked } : f);
     setCustomFoods(u); ss(`custom_food_${date}`, u);
+    syncDaily(date, { custom_foods: u });
   };
   const deleteCustom = idx => {
     const u = customFoods.filter((_, i) => i !== idx);
     setCustomFoods(u); ss(`custom_food_${date}`, u);
+    syncDaily(date, { custom_foods: u });
   };
   const addCustomFood = () => {
     if (!addName || !addCal) return;
     const entry = { id: `cf_${Date.now()}`, name: addName, cal: parseInt(addCal) || 0, p: parseInt(addP) || 0, c: parseInt(addC) || 0, f: parseInt(addF) || 0, checked: false };
     const u = [...customFoods, entry];
     setCustomFoods(u); ss(`custom_food_${date}`, u);
+    syncDaily(date, { custom_foods: u });
     setAddName(''); setAddCal(''); setAddP(''); setAddC(''); setAddF(''); setShowAdd(false);
   };
 
@@ -540,7 +613,7 @@ const FoodTab = ({ date, dow }) => {
 const SuppTab = ({ date, dow }) => {
   const isTraining = [1, 2, 3, 4, 5].includes(dow);
   const [checked, setChecked] = useState(() => ls(`supps_${date}`, {}));
-  const toggle = id => { const u = { ...checked, [id]: !checked[id] }; setChecked(u); ss(`supps_${date}`, u); };
+  const toggle = id => { const u = { ...checked, [id]: !checked[id] }; setChecked(u); ss(`supps_${date}`, u); syncDaily(date, { supps_checked: u }); };
 
   const allS = [...SUPPLEMENTS.morning, ...(isTraining ? SUPPLEMENTS.preworkout : []), ...SUPPLEMENTS.night];
   const done = allS.filter(s => checked[s.id]).length;
@@ -607,19 +680,19 @@ const BonusTab = ({ date }) => {
   const [addCal, setAddCal] = useState('');
   const [showAdd, setShowAdd] = useState(false);
 
-  const toggle = id => { const u = { ...checked, [id]: !checked[id] }; setChecked(u); ss(`bonus_${date}`, u); };
+  const toggle = id => { const u = { ...checked, [id]: !checked[id] }; setChecked(u); ss(`bonus_${date}`, u); syncDaily(date, { bonus_checked: u }); };
   const toggleCustom = idx => {
     const u = customList.map((a, i) => i === idx ? { ...a, checked: !a.checked } : a);
-    setCustomList(u); ss(`bonus_custom_${date}`, u);
+    setCustomList(u); ss(`bonus_custom_${date}`, u); syncDaily(date, { bonus_custom: u });
   };
   const deleteCustom = idx => {
     const u = customList.filter((_, i) => i !== idx);
-    setCustomList(u); ss(`bonus_custom_${date}`, u);
+    setCustomList(u); ss(`bonus_custom_${date}`, u); syncDaily(date, { bonus_custom: u });
   };
   const addActivity = () => {
     if (!addLabel) return;
     const u = [...customList, { id: `ba_${Date.now()}`, label: addLabel, cal: parseInt(addCal) || 0, checked: false }];
-    setCustomList(u); ss(`bonus_custom_${date}`, u);
+    setCustomList(u); ss(`bonus_custom_${date}`, u); syncDaily(date, { bonus_custom: u });
     setAddLabel(''); setAddCal(''); setShowAdd(false);
   };
 
@@ -700,6 +773,7 @@ const ProgressTab = () => {
     const entry = { date: todayStr(), ts: Date.now(), note, ...form };
     const updated = [...measurements.filter(e => e.date !== todayStr()), entry].sort((a, b) => a.ts - b.ts);
     setMeasurements(updated); ss('measurements', updated);
+    saveMeasurement(entry);
     setForm({}); setNote('');
   };
 
@@ -894,6 +968,12 @@ export default function App() {
   const dow = new Date(date + 'T12:00:00').getDay();
   const dayInfo = SCHEDULE[dow];
   const isToday = date === todayStr();
+
+  // Load from Supabase whenever date changes
+  useEffect(() => {
+    loadDaily(date);
+    loadMeasurements();
+  }, [date]);
 
   const ChevL = () => (
     <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
